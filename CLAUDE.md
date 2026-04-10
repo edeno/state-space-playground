@@ -96,6 +96,33 @@ The returned dict is the same shape as in the parent project. Key entries:
 
 See `src/state_space_playground/types.py::SessionData` for the full schema, and the parent project's `CLAUDE.md` for a tour.
 
+### Sorted single units (only available for a few sessions)
+
+The **default** HPC loader path uses clusterless waveform marks per tetrode. Most bandit sessions have **no sorted CA1 units** — just clusterless. Exceptions where CA1 was manually sorted with `mountainsort4` + `sorter_params_name="franklab_tetrode_hippocampus_30KHz"`:
+
+| NWB file | Sorted CA1 units | Sort groups | Run epochs | Notes |
+|---|---|---|---|---|
+| **`j1620210710_.nwb`** | **1,239** | 21 (of 22 tetrodes) | 7 (`02_r1`…`14_r7`) | **Also has 74 sorted mPFC units** — cross-region single-unit experiments possible |
+| `senor20201030_.nwb` | 9 | 1 tetrode | 7 (`02_r1`…`14_r7`) | Too thin for serious single-unit work |
+
+**`j1620210710_.nwb` is the goldmine** for anything that needs sorted CA1 place cells. To load it:
+
+```python
+data = load_data(
+    nwb_file_name="j1620210710_.nwb",
+    epoch_name="02_r1",  # or 04_r2, 06_r3, 08_r4, 10_r5, 12_r6, 14_r7
+    use_sorted_hpc=True,
+)
+# data["spike_times"]["HPC"]  → sorted CA1 units (~305 active in a 23-min run epoch)
+# data["spike_times"]["mPFC"] → 74 sorted mPFC units (loaded automatically via the
+#                               existing cortex sorter path — no extra flag needed)
+# data["spike_waveform_features"] has NO "HPC" entry when use_sorted_hpc=True
+```
+
+Unit count per epoch is smaller than the raw total because `filter_spike_times` drops units that are silent in the requested position time window (≈75% of the 1,239 CA1 units don't fire during any given 23-min run epoch — this is normal CA1 epoch/context specificity).
+
+**PFC/OFC LFP does not exist** in Spyglass for any bandit session. The LFP pipeline was only populated with ~22 CA1 electrodes + 1–2 callosum references per file. mPFC/OFC electrodes exist in the raw recordings (1–2 per file) but were never fed through `LFPElectrodeGroup`/`LFPV1`. Cross-region LFP analyses would require extracting those channels from the raw 30 kHz NWB data — not a one-liner.
+
 ### Important time/index conventions (inherited from parent)
 
 - **Time is always in seconds**, never ms.
