@@ -10,7 +10,7 @@ The data loading code is vendored from the sibling project [`continuum-swr-repla
 
 ### What lives where
 
-```
+```text
 state-space-playground/
 ├── pyproject.toml            # uv project; JAX CUDA 12, dynamax, state_space_practice, non_local_detector, spyglass
 ├── scripts/
@@ -79,7 +79,7 @@ from state_space_playground.data_loaders import load_data, get_epoch_info
 
 epoch_info = get_epoch_info()
 data = load_data(
-    nwb_file_name="chimi20200212_.nwb",
+    nwb_file_name="chimi20200213_.nwb",
     epoch_name="02_r1",
     ripple_detector_name="Kay",
 )
