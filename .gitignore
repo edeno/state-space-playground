@@ -21,8 +21,10 @@ notebooks/*.ipynb
 
 # Analysis artifacts
 Processed-Data/
+cache/
 *.nc
 *.pkl
 *.png
 *.pdf
+*.mp4
 logs/
