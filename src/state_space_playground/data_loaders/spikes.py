@@ -412,13 +412,103 @@ def get_pfc_spike_times(
     )
 
 
-def get_spike_data(nwb_file_name: str) -> SpikeDataDict:
+def get_hpc_sorted_spike_times(
+    nwb_file_name: str,
+) -> list[NDArray[np.float64]]:
+    """Get hippocampus sorted spike times (MountainSort4 CA1 units).
+
+    Only available for a small number of bandit sessions where CA1 tetrodes
+    were manually spike-sorted rather than processed through the clusterless
+    pipeline. Known to exist for:
+
+    - ``j1620210710_.nwb`` (~1239 units across 21 tetrodes, 7 run epochs)
+    - ``senor20201030_.nwb`` (9 units, 1 tetrode — thin)
+
+    All other bandit sessions raise ``ValueError``.
+
+    Parameters
+    ----------
+    nwb_file_name : str
+        NWB file name
+
+    Returns
+    -------
+    list[NDArray[np.float64]]
+        List of arrays with spike times (seconds), one per sorted unit,
+        flattened across all CA1 sort groups.
+
+    Raises
+    ------
+    ValueError
+        If no CuratedSpikeSorting rows exist for this file with
+        ``sorter="mountainsort4"`` and
+        ``sorter_params_name="franklab_tetrode_hippocampus_30KHz"``.
+
+    """
+    restriction = {
+        "nwb_file_name": nwb_file_name,
+        "sorter": "mountainsort4",
+        "sorter_params_name": "franklab_tetrode_hippocampus_30KHz",
+    }
+
+    curation_ids = (CuratedSpikeSorting & restriction).fetch("curation_id")
+    if len(curation_ids) == 0:
+        raise ValueError(
+            f"No sorted HPC CuratedSpikeSorting rows found for {nwb_file_name!r}"
+        )
+    max_curation_id = curation_ids.max()
+    restriction["curation_id"] = max_curation_id
+
+    # Join with electrode group metadata to restrict to CA1 sort groups only.
+    # In practice all franklab_tetrode_hippocampus_30KHz groups are CA1, but
+    # keep the filter for safety.
+    curated_spikes_info = pd.DataFrame(
+        (CuratedSpikeSorting & restriction) * SortGroup.SortGroupElectrode
+    )
+    electrode_group_df = get_electrode_group_info(nwb_file_name)
+    curated_spikes_info = pd.merge(
+        curated_spikes_info, electrode_group_df, on="electrode_group_name"
+    )
+    spikesorting_keys = pd.merge(
+        pd.DataFrame(CuratedSpikeSorting() & restriction),
+        curated_spikes_info.groupby("sort_group_id").targeted_location.first(),
+        on="sort_group_id",
+    )
+    spikesorting_keys = spikesorting_keys.loc[
+        spikesorting_keys.targeted_location == "CA1"
+    ].to_dict(orient="records")
+
+    nwb_hpc = (CuratedSpikeSorting() & spikesorting_keys).fetch_nwb()
+
+    return list(
+        itertools.chain.from_iterable(
+            [
+                file["units"]["spike_times"].to_list()
+                for file in nwb_hpc
+                if "units" in file
+            ]
+        )
+    )
+
+
+def get_spike_data(
+    nwb_file_name: str,
+    use_sorted_hpc: bool = False,
+) -> SpikeDataDict:
     """Load spike data for all available brain areas.
 
     Parameters
     ----------
     nwb_file_name : str
         NWB file name
+    use_sorted_hpc : bool, optional
+        If True, load CA1 spike times from the MountainSort4-sorted units
+        (``get_hpc_sorted_spike_times``) instead of the clusterless waveform
+        marks (``get_hpc_marks``). Only available for a small number of
+        sessions (see ``get_hpc_sorted_spike_times``). When True, the returned
+        ``spike_waveform_features`` dict will not contain an ``"HPC"`` entry,
+        since sorted spikes have no associated waveform features. Defaults to
+        False (clusterless).
 
     Returns
     -------
@@ -431,12 +521,22 @@ def get_spike_data(nwb_file_name: str) -> SpikeDataDict:
     spike_times = {}
     spike_waveform_features = {}
 
-    try:
-        spike_times["HPC"], spike_waveform_features["HPC"] = get_hpc_marks(
-            nwb_file_name
-        )
-    except ValueError as e:
-        logger.debug("No HPC data available for %s: %s", nwb_file_name, e)
+    if use_sorted_hpc:
+        try:
+            hpc_sorted = get_hpc_sorted_spike_times(nwb_file_name)
+            if len(hpc_sorted) > 0:
+                spike_times["HPC"] = hpc_sorted
+        except ValueError as e:
+            logger.debug(
+                "No sorted HPC data available for %s: %s", nwb_file_name, e
+            )
+    else:
+        try:
+            spike_times["HPC"], spike_waveform_features["HPC"] = get_hpc_marks(
+                nwb_file_name
+            )
+        except ValueError as e:
+            logger.debug("No HPC data available for %s: %s", nwb_file_name, e)
 
     for brain_area in ["mPFC", "OFC"]:
         try:

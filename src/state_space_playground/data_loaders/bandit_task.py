@@ -182,6 +182,7 @@ def load_data(
     epoch_name: str,
     ripple_detector_name: str = "Kay",
     include: frozenset[str] | None = None,
+    use_sorted_hpc: bool = False,
 ) -> SessionData:
     """Load data for a given session and epoch with selective loading.
 
@@ -204,6 +205,14 @@ def load_data(
         Use DataLoadingPreset for common configurations or create custom sets.
         Position data (position_info, track_graph) is always loaded as it
         defines time bounds for other data types
+    use_sorted_hpc : bool, optional
+        If True, load CA1 spike times from MountainSort4-sorted units
+        (``sorter_params_name="franklab_tetrode_hippocampus_30KHz"``) instead
+        of the default clusterless waveform marks. Only available for a small
+        number of sessions (notably ``j1620210710_.nwb``, which has ~1239
+        sorted CA1 units across 7 run epochs). When True,
+        ``spike_waveform_features`` will not contain an ``"HPC"`` entry,
+        since sorted spikes have no waveform features. Defaults to False.
 
     Returns
     -------
@@ -348,7 +357,7 @@ def load_data(
     if should_load(SessionDataKeys.SPIKE_TIMES) or should_load(
         SessionDataKeys.SPIKE_WAVEFORM_FEATURES
     ):
-        spike_data = get_spike_data(nwb_file_name)
+        spike_data = get_spike_data(nwb_file_name, use_sorted_hpc=use_sorted_hpc)
         _process_spike_data(
             spike_data, position_data["position_info"].index, should_load, result
         )
