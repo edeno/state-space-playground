@@ -1,0 +1,28 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+.env
+
+# Jupyter
+.ipynb_checkpoints/
+notebooks/*.ipynb
+
+# OS / editors
+.DS_Store
+.vscode/
+.idea/
+
+# Analysis artifacts
+Processed-Data/
+*.nc
+*.pkl
+*.png
+*.pdf
+logs/
