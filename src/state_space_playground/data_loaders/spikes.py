@@ -478,6 +478,14 @@ def get_hpc_sorted_spike_times(
         spikesorting_keys.targeted_location == "CA1"
     ].to_dict(orient="records")
 
+    # Guard: DataJoint treats `table & []` as an unrestricted query (NOT empty),
+    # so an empty keys list here would silently fetch the entire table.
+    if not spikesorting_keys:
+        raise ValueError(
+            f"No CA1 sort groups found for {nwb_file_name!r} after "
+            "electrode-group filter"
+        )
+
     nwb_hpc = (CuratedSpikeSorting() & spikesorting_keys).fetch_nwb()
 
     return list(
