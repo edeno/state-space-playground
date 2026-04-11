@@ -3674,8 +3674,8 @@ provides-extras = ["dev"]
 
 [[package]]
 name = "state-space-practice"
-version = "0.1.dev278+g366bc5589"
-source = { git = "https://github.com/edeno/state_space_practice#366bc55894c1079e531aa644a51f9fea5395eb4b" }
+version = "0.1.dev283+g3168eb8c5"
+source = { git = "https://github.com/edeno/state_space_practice#3168eb8c5adf50d358422e4a4a6df17e4623983a" }
 dependencies = [
     { name = "jax" },
     { name = "jaxlib" },

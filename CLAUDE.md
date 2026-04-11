@@ -60,11 +60,13 @@ JAX is installed with the bundled CUDA 12 pip wheels per the [JAX install docs](
 
 ## Running commands — gotchas
 
-These three pitfalls have each bitten us at least once. Keep them in mind.
+These pitfalls have each bitten us at least once. Keep them in mind.
 
 - **Always use `uv run --project /cumulus/edeno/state-space-playground ...`** (or `cd` into the playground first). Without `--project`, uv walks up the filesystem looking for a `pyproject.toml` and may silently pick the sibling `continuum-swr-replay` venv — which has a different Python-package set (notably, it ships `numba`, which the playground only gets via the `track_linearization[opt]` extra). This produces confusing "works in one shell, fails in another" failures.
 
 - **`pick_free_gpu()` must be the very first thing in every notebook**, before any other `state_space_playground` import. Importing `state_space_playground.session` transitively pulls in jax/jaxlib via the vendored data loaders (`session → data_loaders → spyglass → track_linearization → … → jax`), and once jax is loaded its CUDA backend is initialized and `CUDA_VISIBLE_DEVICES` has no effect. The guard in `gpu.py` raises a clear `RuntimeError` if you get the order wrong, but do yourself a favor and just put it at the top.
+
+- **The playground runs in float64 by default.** `pick_free_gpu()` enables `jax_enable_x64=True` as a side effect — all JAX computations downstream default to f64. This is a deliberate choice, not a JAX default. Upstream `state_space_practice`'s Kalman-style point-process filter (`stochastic_point_process_filter` in `point_process_kalman.py`) propagates posterior covariance via `symmetrize + psd_solve` with `diagonal_boost=1e-9` in f32, and we observed it losing PSD after enough bins when `init_cov` is even mildly ill-conditioned — producing silent NaN outputs that look like SGD instability but are actually a numerical-precision floor. Running in f64 empirically eliminates both failure modes we found (`PlaceFieldModel.fit_sgd` step-11 NaN from a cold start, and step-2 NaN from a warm start on a long session) at a cost of ~40% slower per-step runtime. If you have a specific reason to use f32 — e.g., you're benchmarking a Joseph-form filter fix upstream — pass `pick_free_gpu(enable_x64=False)` and the function will explicitly set `jax_enable_x64=False` so the precision is deterministic. Full investigation and experimental evidence are captured in `notebooks/02_STATUS.md`.
 
 - **Do not drop `[opt]` from `track_linearization[opt]` in `pyproject.toml`.** The module imports without numba, but its Viterbi decoder silently falls back to a Python path that is orders of magnitude slower. Anything that touches linearized position will mysteriously become glacial.
 
@@ -86,10 +88,13 @@ nvidia-smi --query-gpu=index,memory.free --format=csv,noheader,nounits | sort -k
 
 ## Loading data
 
-Every script/notebook starts the same way: pin a GPU, then load a session. The GPU step **must** come first — see the gotchas section above.
+Every script/notebook starts the same way: pin a GPU (which also enables f64), then load a session. The GPU step **must** come first — see the gotchas section above.
 
 ```python
-# 1. Pin a GPU before importing anything from state_space_playground.
+# 1. Pin a GPU and enable f64 before importing anything else from
+#    state_space_playground. pick_free_gpu() sets CUDA_VISIBLE_DEVICES,
+#    disables XLA preallocation, and calls jax.config.update(
+#    "jax_enable_x64", True). After this returns, jnp defaults to f64.
 from state_space_playground.gpu import pick_free_gpu
 pick_free_gpu()  # raises RuntimeError if jax/jaxlib is already loaded
 
