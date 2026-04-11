@@ -58,6 +58,18 @@ uv sync --extra dev
 
 JAX is installed with the bundled CUDA 12 pip wheels per the [JAX install docs](https://github.com/jax-ml/jax/blob/main/docs/installation.md). **Do not** switch to `jax[cuda12-local]` — there is no system CUDA toolkit expected here, and the bundled wheels are the JAX team's recommended path.
 
+## Running commands — gotchas
+
+These three pitfalls have each bitten us at least once. Keep them in mind.
+
+- **Always use `uv run --project /cumulus/edeno/state-space-playground ...`** (or `cd` into the playground first). Without `--project`, uv walks up the filesystem looking for a `pyproject.toml` and may silently pick the sibling `continuum-swr-replay` venv — which has a different Python-package set (notably, it ships `numba`, which the playground only gets via the `track_linearization[opt]` extra). This produces confusing "works in one shell, fails in another" failures.
+
+- **`pick_free_gpu()` must be the very first thing in every notebook**, before any other `state_space_playground` import. Importing `state_space_playground.session` transitively pulls in jax/jaxlib via the vendored data loaders (`session → data_loaders → spyglass → track_linearization → … → jax`), and once jax is loaded its CUDA backend is initialized and `CUDA_VISIBLE_DEVICES` has no effect. The guard in `gpu.py` raises a clear `RuntimeError` if you get the order wrong, but do yourself a favor and just put it at the top.
+
+- **Do not drop `[opt]` from `track_linearization[opt]` in `pyproject.toml`.** The module imports without numba, but its Viterbi decoder silently falls back to a Python path that is orders of magnitude slower. Anything that touches linearized position will mysteriously become glacial.
+
+- **When running long scripts**, avoid piping to `| tail` / `| head` — those buffer stdout until the producer exits, so a hung process shows nothing. Use `> /tmp/foo.log 2>&1` + `run_in_background` instead, so progress is visible while the process runs.
+
 ### Verifying JAX GPU
 
 ```bash
@@ -74,12 +86,33 @@ nvidia-smi --query-gpu=index,memory.free --format=csv,noheader,nounits | sort -k
 
 ## Loading data
 
+Every script/notebook starts the same way: pin a GPU, then load a session. The GPU step **must** come first — see the gotchas section above.
+
+```python
+# 1. Pin a GPU before importing anything from state_space_playground.
+from state_space_playground.gpu import pick_free_gpu
+pick_free_gpu()  # raises RuntimeError if jax/jaxlib is already loaded
+
+# 2. Now it's safe to import session and the models.
+from state_space_playground.session import load_session
+
+data = load_session(
+    nwb_file_name="j1620210710_.nwb",
+    epoch_name="02_r1",
+    use_sorted_hpc=True,
+)
+```
+
+`load_session()` is a pickle cache on top of the vendored `data_loaders.load_data()`. First call for a given `(nwb, epoch, use_sorted_hpc)` triple takes ~2 min; subsequent calls are sub-second (reads `cache/sessions/*.pkl`). If you need to force a re-fetch, pass `force=True`. Run `scripts/save_session.py` once to prime the cache for the default session.
+
+For direct, uncached access you can still call the underlying loader:
+
 ```python
 from state_space_playground.data_loaders import load_data, get_epoch_info
 
 epoch_info = get_epoch_info()
 data = load_data(
-    nwb_file_name="chimi20200213_.nwb",
+    nwb_file_name="j1620210710_.nwb",
     epoch_name="02_r1",
     ripple_detector_name="Kay",
 )

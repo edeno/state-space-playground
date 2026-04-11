@@ -1,18 +1,26 @@
 """GPU selection utilities for the shared CUDA box.
 
-This module must be imported (and ``pick_free_gpu()`` called) **before**
-``import jax``. JAX initializes its CUDA backend on first import and
-reads the ``CUDA_VISIBLE_DEVICES`` / ``XLA_PYTHON_CLIENT_PREALLOCATE``
-environment variables at that point — setting them afterward is a
-no-op for that process.
+``pick_free_gpu()`` must be called **before jax/jaxlib is loaded**.
+JAX initializes its CUDA backend on first import and reads the
+``CUDA_VISIBLE_DEVICES`` / ``XLA_PYTHON_CLIENT_PREALLOCATE`` environment
+variables at that point — setting them afterward is a no-op for that
+process.
+
+**Note on transitive imports:** ``state_space_playground.session`` (and
+anything that imports ``state_space_playground.data_loaders``) pulls in
+``jax`` transitively via vendored dependencies. In a notebook, call
+``pick_free_gpu()`` as the very first thing, before any other
+``state_space_playground`` import. The guard below will raise with a
+clear error if you get the order wrong.
 
 Usage
 -----
 ::
 
     from state_space_playground.gpu import pick_free_gpu
-    pick_free_gpu()
-    import jax  # sees the chosen physical GPU as ``cuda:0``
+    pick_free_gpu()                              # MUST come first
+    from state_space_playground.session import load_session  # pulls in jax
+    import jax, jax.numpy as jnp                 # sees pinned GPU as cuda:0
 """
 
 from __future__ import annotations
