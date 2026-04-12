@@ -3644,6 +3644,11 @@ dev = [
     { name = "ruff" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "jupytext" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "datajoint" },
@@ -3671,6 +3676,9 @@ requires-dist = [
     { name = "xarray", specifier = ">=2023.1.0" },
 ]
 provides-extras = ["dev"]
+
+[package.metadata.requires-dev]
+dev = [{ name = "jupytext", specifier = ">=1.19.1" }]
 
 [[package]]
 name = "state-space-practice"
