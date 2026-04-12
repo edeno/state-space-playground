@@ -3646,6 +3646,7 @@ dev = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "ipykernel" },
     { name = "jupytext" },
 ]
 
@@ -3678,7 +3679,10 @@ requires-dist = [
 provides-extras = ["dev"]
 
 [package.metadata.requires-dev]
-dev = [{ name = "jupytext", specifier = ">=1.19.1" }]
+dev = [
+    { name = "ipykernel", specifier = ">=7.2.0" },
+    { name = "jupytext", specifier = ">=1.19.1" },
+]
 
 [[package]]
 name = "state-space-practice"
