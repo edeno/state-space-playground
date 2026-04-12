@@ -73,9 +73,12 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 # Vendored from continuum-swr-replay; keep as-is to minimize drift.
 "src/state_space_playground/data_loaders/bandit_task.py" = ["E402", "F401"]
-# Jupytext notebooks call pick_free_gpu() at module level before any
-# other imports; that's load-bearing and documented in CLAUDE.md.
-"notebooks/*.py" = ["E402"]
+# Jupytext notebooks:
+# - E402: pick_free_gpu() at module level before any other imports
+#   (load-bearing; documented in CLAUDE.md)
+# - B018: a bare variable at the end of a cell is the standard Jupyter
+#   "display this" pattern, not a useless expression
+"notebooks/*.py" = ["E402", "B018"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
