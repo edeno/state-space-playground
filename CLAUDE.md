@@ -8,6 +8,10 @@ This is a **playground** for experimenting with state-space models on neural and
 
 The data loading code is vendored from the sibling project [`continuum-swr-replay`](https://github.com/edeno/continuum-swr-replay). That project is the authoritative source for everything about the spatial bandit task, the NWB/Spyglass pipeline, and the structure of the loaded session dict. When in doubt, check its `CLAUDE.md`.
 
+For a detailed description of the behavioral task, training protocol,
+implant, and recording setup, see
+[docs/task_description.md](docs/task_description.md).
+
 ### What lives where
 
 ```text
