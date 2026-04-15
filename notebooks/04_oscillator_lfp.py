@@ -6,7 +6,7 @@
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.16.0
+#       jupytext_version: 1.19.1
 #   kernelspec:
 #     display_name: Python 3 (ipykernel)
 #     language: python
@@ -171,7 +171,7 @@ key = jax.random.key(42)
 # any frequency switches (e.g., to ripple-band ~200 Hz) via the
 # discrete state mechanism.
 freqs = jnp.full(n_osc, INIT_FREQ_HZ)
-auto_regressive_coef = jnp.full(n_osc, 0.95)  # slowly decaying oscillation
+damping_coef = jnp.full(n_osc, 0.95)  # slowly decaying oscillation
 process_variance = jnp.full(n_osc, 0.1)
 measurement_variance = 1.0
 
@@ -184,7 +184,7 @@ model = DirectedInfluenceModel(
     n_discrete_states=N_DISCRETE_STATES,
     sampling_freq=lfp_fs,
     freqs=freqs,
-    auto_regressive_coef=auto_regressive_coef,
+    damping_coef=damping_coef,
     process_variance=process_variance,
     measurement_variance=measurement_variance,
     coupling_strength=coupling_strength,
